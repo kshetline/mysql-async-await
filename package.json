@@ -1,0 +1,41 @@
+{
+  "name": "mysql-async-await",
+  "version": "0.0.0-alpha.0",
+  "description": "Promise-based mysql wrapper, suitable for async/await",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "tsc && mocha **/*.spec.js",
+    "prepublishOnly": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kshetline/mysql-async-await.git"
+  },
+  "keywords": [
+    "mysql",
+    "promise",
+    "async",
+    "await"
+  ],
+  "author": "Kerry Shetline <kerry@shetline.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kshetline/mysql-async-await/issues"
+  },
+  "homepage": "https://github.com/kshetline/mysql-async-await#readme",
+  "engines": {
+    "node": ">= 4"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.1.7",
+    "@types/mocha": "^5.2.7",
+    "@types/mysql": "^2.15.6",
+    "chai": "^4.2.0",
+    "mocha": "^6.1.4",
+    "tslint-no-unused-expression-chai": "^0.1.4",
+    "typescript": "^3.5.2"
+  },
+  "dependencies": {
+    "mysql": "^2.17.1"
+  }
+}

@@ -1,0 +1,13 @@
+/.idea
+/coverage
+/scripts
+/test
+.travis.yml
+.npmrc
+.jshintrc
+/src
+/tsconfig.json
+/tslint.json
+*.js.map
+*.spec.d.ts
+*.spec.js
