@@ -24,7 +24,7 @@
   },
   "homepage": "https://github.com/kshetline/mysql-async-await#readme",
   "engines": {
-    "node": ">= 4"
+    "node": ">= 6"
   },
   "devDependencies": {
     "@types/chai": "^4.1.7",
