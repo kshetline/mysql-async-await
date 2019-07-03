@@ -2,7 +2,7 @@
 
 ## NOT READY FOR USE!
 
-This is only published on npm to make sure the package name remained available during development. 😏
+This is only published on npm to make sure the package name remains available during development. 😏
 
 [![NPM Stats](https://nodei.co/npm/mysql-async-await.png)](https://npmjs.org/package/mysql-async-await/)
 
