@@ -4,7 +4,7 @@
   "description": "Promise-based mysql wrapper, suitable for async/await",
   "main": "dist/index.js",
   "scripts": {
-    "test": "tsc && mocha **/*.spec.js",
+    "test": "mocha --require ts-node/register src/**/*.spec.ts",
     "prepublishOnly": "tsc"
   },
   "repository": {
@@ -32,6 +32,7 @@
     "@types/mysql": "^2.15.6",
     "chai": "^4.2.0",
     "mocha": "^6.1.4",
+    "ts-node-dev": "^1.0.0-pre.40",
     "tslint-no-unused-expression-chai": "^0.1.4",
     "typescript": "^3.5.2"
   },

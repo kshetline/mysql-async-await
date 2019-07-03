@@ -1,17 +1,15 @@
 import { expect } from 'chai';
 import { Pool, PoolConnection } from './pool';
 
-const password = 'nOtSoS3Cr3t!';
-
 describe('Pool', () => {
   let pool: Pool;
 
   beforeEach(() => {
     pool = new Pool({
-      host: 'shetline.com',
-      user: 'guest',
-      password,
-      database: 'test'
+      host: process.env.DB_TEST_HOST,
+      user: process.env.DB_TEST_USER,
+      password: process.env.DB_TEST_PWD,
+      database: process.env.DB_TEST_DB
     });
   });
 
