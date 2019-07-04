@@ -8,6 +8,11 @@ export interface FullQueryResults {
   fields: FieldInfo[];
 }
 
+export interface ResultsWithFields {
+  results: any;
+  fields: FieldInfo[];
+}
+
 export class AAPool {
   private _pool: Pool;
   private dbName: string;
@@ -80,6 +85,22 @@ export class AAPool {
     });
   }
 
+  queryResultsWithFields(sqlStringOrOptions: string | QueryOptions, values?: any) {
+    return new Promise<ResultsWithFields>((resolve, reject) => {
+      const args = typeof sqlStringOrOptions === 'string' ?
+        [sqlStringOrOptions, values] : [sqlStringOrOptions];
+
+      (this._pool.query as any)(...args, (err: MysqlError, results: any, fields: FieldInfo[]) => {
+        if (err) {
+          this._logError(err);
+          reject(err);
+        }
+        else
+          resolve({results, fields});
+      });
+    });
+  }
+
   end(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       this._pool.end((err: MysqlError) => {
@@ -138,6 +159,22 @@ export class AAPoolConnection {
         }
         else
           resolve(results);
+      });
+    });
+  }
+
+  queryResultsWithFields(sqlStringOrOptions: string | QueryOptions, values?: any) {
+    return new Promise<ResultsWithFields>((resolve, reject) => {
+      const args = typeof sqlStringOrOptions === 'string' ?
+        [sqlStringOrOptions, values] : [sqlStringOrOptions];
+
+      (this._connection.query as any)(...args, (err: MysqlError, results: any, fields: FieldInfo[]) => {
+        if (err) {
+          this.logError(err);
+          reject(err);
+        }
+        else
+          resolve({results, fields});
       });
     });
   }
