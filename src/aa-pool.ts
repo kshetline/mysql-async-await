@@ -1,5 +1,4 @@
-import mysql, {
-  FieldInfo, MysqlError, PoolConnection as _PoolConnection, QueryOptions, Pool as _Pool, PoolConfig } from 'mysql';
+import mysql, { FieldInfo, MysqlError, PoolConnection, QueryOptions, Pool, PoolConfig } from 'mysql';
 import { parse as parseUrl } from 'url';
 import WriteStream = NodeJS.WriteStream;
 
@@ -9,8 +8,8 @@ export interface FullQueryResults {
   fields: FieldInfo[];
 }
 
-export class Pool {
-  private _pool: _Pool;
+export class AAPool {
+  private _pool: Pool;
   private dbName: string;
 
   constructor(config: PoolConfig | string, private errorStream?: WriteStream) {
@@ -22,28 +21,30 @@ export class Pool {
       this.dbName = config.database;
   }
 
-  getConnection(): Promise<PoolConnection> {
-    return new Promise<PoolConnection>((resolve, reject) => {
+  get pool(): Pool { return this._pool; }
+
+  getConnection(): Promise<AAPoolConnection> {
+    return new Promise<AAPoolConnection>((resolve, reject) => {
       this._pool.getConnection((err, connection) => {
         if (err) {
           this._logError(err);
           reject(err);
         } else
-          resolve(new PoolConnection(connection, this));
+          resolve(new AAPoolConnection(connection, this));
       });
     });
   }
 
-  on(ev: 'acquire' | 'connection' | 'release', callback: (connection: PoolConnection) => void): Pool;
-  on(ev: 'error', callback: (err: MysqlError) => void): Pool;
-  on(ev: 'enqueue', callback: (err?: MysqlError) => void): Pool;
-  on(ev: string, callback: (...args: any[]) => void): Pool {
+  on(ev: 'acquire' | 'connection' | 'release', callback: (connection: AAPoolConnection) => void): AAPool;
+  on(ev: 'error', callback: (err: MysqlError) => void): AAPool;
+  on(ev: 'enqueue', callback: (err?: MysqlError) => void): AAPool;
+  on(ev: string, callback: (...args: any[]) => void): AAPool {
     this._pool.on(ev, (...args: any[]) => {
       if (ev === 'error')
         this._logError(args[0]);
 
       if (args[0] && /^(acquire|connection|release)$/.test(ev))
-        callback(new PoolConnection(args[0]));
+        callback(new AAPoolConnection(args[0]));
       else
         callback(...args);
     });
@@ -108,15 +109,17 @@ export class Pool {
   }
 }
 
-export class PoolConnection {
-  constructor(private connection: _PoolConnection, private parent?: Pool) { }
+export class AAPoolConnection {
+  constructor(private _connection: PoolConnection, private parent?: AAPool) { }
+
+  get connection(): PoolConnection { return this._connection; }
 
   query(sqlStringOrOptions: string | QueryOptions, values?: any): Promise<FullQueryResults> {
     return new Promise<FullQueryResults>(resolve => {
       const args = typeof sqlStringOrOptions === 'string' ?
         [sqlStringOrOptions, values] : [sqlStringOrOptions];
 
-        (this.connection.query as any)(...args, (err: MysqlError, results: any, fields: FieldInfo[]) => {
+        (this._connection.query as any)(...args, (err: MysqlError, results: any, fields: FieldInfo[]) => {
           this.logError(err);
           resolve({err, results, fields});
         });
@@ -128,7 +131,7 @@ export class PoolConnection {
       const args = typeof sqlStringOrOptions === 'string' ?
         [sqlStringOrOptions, values] : [sqlStringOrOptions];
 
-      (this.connection.query as any)(...args, (err: MysqlError, results: any) => {
+      (this._connection.query as any)(...args, (err: MysqlError, results: any) => {
         if (err) {
           this.logError(err);
           reject(err);
@@ -140,7 +143,7 @@ export class PoolConnection {
   }
 
   release(): void {
-    this.connection.release();
+    this._connection.release();
   }
 
   private logError(err: MysqlError): void {

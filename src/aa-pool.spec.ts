@@ -1,11 +1,11 @@
 import { expect } from 'chai';
-import { Pool, PoolConnection } from './pool';
+import { AAPool, AAPoolConnection } from './aa-pool';
 
-describe('Pool', () => {
-  let pool: Pool;
+describe('AAPool', () => {
+  let pool: AAPool;
 
   beforeEach(() => {
-    pool = new Pool({
+    pool = new AAPool({
       host: process.env.DB_TEST_HOST,
       user: process.env.DB_TEST_USER,
       password: process.env.DB_TEST_PWD,
@@ -17,7 +17,7 @@ describe('Pool', () => {
     await pool.end();
   });
 
-  it('should be able to get and release a MySQL PoolConnection', async () => {
+  it('should be able to get and release a MySQL AAPoolConnection', async () => {
     const connection = await pool.getConnection();
 
     expect(connection).to.be.ok;
