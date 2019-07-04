@@ -1,6 +1,8 @@
-import mysql, { FieldInfo, MysqlError, PoolConnection, QueryOptions, Pool, PoolConfig } from 'mysql';
+import mysql, { FieldInfo, MysqlError, PoolConnection, QueryOptions, Pool, PoolConfig, Connection } from 'mysql';
 import { parse as parseUrl } from 'url';
 import WriteStream = NodeJS.WriteStream;
+import { AAConnection } from './aa-connection';
+import { Queryable } from './queryable';
 
 export interface FullQueryResults {
   err: MysqlError | null;
@@ -13,12 +15,13 @@ export interface ResultsWithFields {
   fields: FieldInfo[];
 }
 
-export class AAPool {
+export class AAPool extends Queryable {
   private _pool: Pool;
   private dbName: string;
 
   constructor(config: PoolConfig | string, private errorStream?: WriteStream) {
-    this._pool = mysql.createPool(config);
+    super(mysql.createPool(config));
+    this._pool = this._queryable as Pool;
 
     if (typeof config === 'string')
       this.dbName = parseUrl(config).path;
@@ -48,57 +51,11 @@ export class AAPool {
       if (ev === 'error')
         this._logError(args[0]);
 
-      if (args[0] && /^(acquire|connection|release)$/.test(ev))
-        callback(new AAPoolConnection(args[0]));
-      else
-        callback(...args);
+      args = AAConnection.replaceConnectionArgs(args);
+      callback(...args);
     });
 
     return this;
-  }
-
-  query(sqlStringOrOptions: string | QueryOptions, values?: any) {
-    return new Promise<FullQueryResults>(resolve => {
-      const args = typeof sqlStringOrOptions === 'string' ?
-        [sqlStringOrOptions, values] : [sqlStringOrOptions];
-
-      (this._pool.query as any)(...args, (err: MysqlError, results: any, fields: FieldInfo[]) => {
-        this._logError(err);
-        resolve({err, results, fields});
-      });
-    });
-  }
-
-  queryResults(sqlStringOrOptions: string | QueryOptions, values?: any): Promise<any> {
-    return new Promise<any>((resolve, reject) => {
-      const args = typeof sqlStringOrOptions === 'string' ?
-        [sqlStringOrOptions, values] : [sqlStringOrOptions];
-
-      (this._pool.query as any)(...args, (err: MysqlError, results: any) => {
-        if (err) {
-          this._logError(err);
-          reject(err);
-        }
-        else
-          resolve(results);
-      });
-    });
-  }
-
-  queryResultsWithFields(sqlStringOrOptions: string | QueryOptions, values?: any) {
-    return new Promise<ResultsWithFields>((resolve, reject) => {
-      const args = typeof sqlStringOrOptions === 'string' ?
-        [sqlStringOrOptions, values] : [sqlStringOrOptions];
-
-      (this._pool.query as any)(...args, (err: MysqlError, results: any, fields: FieldInfo[]) => {
-        if (err) {
-          this._logError(err);
-          reject(err);
-        }
-        else
-          resolve({results, fields});
-      });
-    });
   }
 
   end(): Promise<void> {
@@ -130,61 +87,18 @@ export class AAPool {
   }
 }
 
-export class AAPoolConnection {
-  constructor(private _connection: PoolConnection, private parent?: AAPool) { }
-
-  get connection(): PoolConnection { return this._connection; }
-
-  query(sqlStringOrOptions: string | QueryOptions, values?: any): Promise<FullQueryResults> {
-    return new Promise<FullQueryResults>(resolve => {
-      const args = typeof sqlStringOrOptions === 'string' ?
-        [sqlStringOrOptions, values] : [sqlStringOrOptions];
-
-        (this._connection.query as any)(...args, (err: MysqlError, results: any, fields: FieldInfo[]) => {
-          this.logError(err);
-          resolve({err, results, fields});
-        });
-    });
-  }
-
-  queryResults(sqlStringOrOptions: string | QueryOptions, values?: any): Promise<any> {
-    return new Promise<any>((resolve, reject) => {
-      const args = typeof sqlStringOrOptions === 'string' ?
-        [sqlStringOrOptions, values] : [sqlStringOrOptions];
-
-      (this._connection.query as any)(...args, (err: MysqlError, results: any) => {
-        if (err) {
-          this.logError(err);
-          reject(err);
-        }
-        else
-          resolve(results);
-      });
-    });
-  }
-
-  queryResultsWithFields(sqlStringOrOptions: string | QueryOptions, values?: any) {
-    return new Promise<ResultsWithFields>((resolve, reject) => {
-      const args = typeof sqlStringOrOptions === 'string' ?
-        [sqlStringOrOptions, values] : [sqlStringOrOptions];
-
-      (this._connection.query as any)(...args, (err: MysqlError, results: any, fields: FieldInfo[]) => {
-        if (err) {
-          this.logError(err);
-          reject(err);
-        }
-        else
-          resolve({results, fields});
-      });
-    });
+export class AAPoolConnection extends AAConnection {
+  constructor(private _poolConnection: PoolConnection, private _pool: AAPool) {
+    super(_poolConnection);
   }
 
   release(): void {
-    this._connection.release();
+    this._poolConnection.release();
   }
 
-  private logError(err: MysqlError): void {
-    if (err && this.parent)
-      this.parent._logError(err);
+  end(): Promise<void> {
+    // PoolConnection end() method has no callback.
+    this._poolConnection.end();
+    return Promise.resolve();
   }
 }
