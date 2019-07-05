@@ -1,24 +1,27 @@
-import { Connection, ConnectionConfig, ConnectionOptions, FieldInfo, MysqlError, QueryFunction, QueryOptions
+import mysql, {
+  Connection, ConnectionConfig, ConnectionOptions, MysqlError, Query, queryCallback, QueryFunction, QueryOptions
 } from 'mysql';
 import WriteStream = NodeJS.WriteStream;
 import { Queryable } from './queryable';
+import { parse as parseUrl } from 'url';
 
 export type ConnectionStates = 'connected' | 'authenticated' | 'disconnected' | 'protocol_error' | string;
-
-export interface FullQueryResults {
-  err: MysqlError | null;
-  results: any;
-  fields: FieldInfo[];
-}
-
-export interface ResultsWithFields {
-  results: any;
-  fields: FieldInfo[];
-}
 
 const connections = new Map<Connection, AAConnection>();
 
 export class AAConnection extends Queryable {
+  static createConnection(connectionUri: string | ConnectionConfig, errorStream?: WriteStream): AAConnection {
+    const connection = mysql.createConnection(connectionUri);
+    const aaConnection = new AAConnection(connection, errorStream);
+
+    if (typeof connectionUri === 'string')
+      aaConnection.dbName = parseUrl(connectionUri).path;
+    else
+      aaConnection.dbName = connectionUri.database;
+
+    return aaConnection;
+  }
+
   static replaceConnectionArgs(args: any[]) {
     if (args)
       return args.map(arg => connections.has(arg) ? connections.get(arg) : arg);
@@ -33,19 +36,30 @@ export class AAConnection extends Queryable {
     connections.set(_connection, this);
   }
 
+  get connection(): Connection { return this._connection; }
+
   get config(): ConnectionConfig { return this._connection.config; }
 
   get state(): ConnectionStates { return this._connection.state; }
 
   get threadId(): number | null { return this._connection.threadId; }
 
+  /**
+   * QueryFunction() argument options are as follows:
+   *
+   * (query: Query): Query;
+   * (options: string | QueryOptions, callback?: queryCallback): Query;
+   * (options: string, values: any, callback?: queryCallback): Query;
+   */
   get createQuery(): QueryFunction { return this._connection.createQuery; }
 
   protected promisify<T>(method: Function, options: T, deleteConnection = false): Promise<any> {
-    return new Promise<void>((resolve, reject): void => {
+    return new Promise<any>((resolve, reject): void => {
       const callback = (err: MysqlError, ...args: any[]) => {
         if (err)
           reject(err);
+        else if (args && args.length > 1)
+          resolve(args);
         else
           resolve(...args);
 
@@ -60,32 +74,32 @@ export class AAConnection extends Queryable {
     });
   }
 
-  async connect(options?: any): Promise<any[]> {
+  async connect(options?: any): Promise<any> {
     return this.promisify(this._connection.connect, options);
   }
 
-  async changeUser(options?: ConnectionOptions): Promise<void> {
+  async changeUser(options?: ConnectionOptions): Promise<any> {
     return this.promisify(this._connection.changeUser, options);
   }
 
-  async beginTransaction(options?: QueryOptions): Promise<void> {
+  async beginTransaction(options?: QueryOptions): Promise<any> {
     return this.promisify(this._connection.beginTransaction, options);
   }
 
-  async commit(options?: QueryOptions): Promise<void> {
+  async commit(options?: QueryOptions): Promise<any> {
     return this.promisify(this._connection.commit, options);
   }
 
-  async rollback(options?: QueryOptions): Promise<void> {
+  async rollback(options?: QueryOptions): Promise<any> {
     return this.promisify(this._connection.rollback, options);
   }
 
-  async ping(options?: QueryOptions): Promise<void> {
+  async ping(options?: QueryOptions): Promise<any> {
     return this.promisify(this._connection.ping, options);
   }
 
   // TODO: Figure out how (and if) this is supposed to return any statistics.
-  async statistics(options?: QueryOptions): Promise<void> {
+  async statistics(options?: QueryOptions): Promise<any> {
     return this.promisify(this._connection.statistics, options);
   }
 
@@ -93,7 +107,7 @@ export class AAConnection extends Queryable {
    * Close the connection. Any queued data (eg queries) will be sent first. If
    * there are any fatal errors, the connection will be immediately closed.r
    */
-  async end(options?: any): Promise<void> {
+  async end(options?: any): Promise<any> {
     return this.promisify(this._connection.end, options, true);
   }
 

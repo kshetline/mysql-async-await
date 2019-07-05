@@ -1,23 +1,17 @@
-import mysql, { FieldInfo, MysqlError, PoolConnection, QueryOptions, Pool, PoolConfig, Connection } from 'mysql';
+import mysql, { MysqlError, PoolConnection, Pool, PoolConfig, ConnectionConfig } from 'mysql';
 import { parse as parseUrl } from 'url';
 import WriteStream = NodeJS.WriteStream;
 import { AAConnection } from './aa-connection';
 import { Queryable } from './queryable';
 
-export interface FullQueryResults {
-  err: MysqlError | null;
-  results: any;
-  fields: FieldInfo[];
-}
-
-export interface ResultsWithFields {
-  results: any;
-  fields: FieldInfo[];
-}
-
 export class AAPool extends Queryable {
+  static createPool(config: PoolConfig | string, errorStream?: WriteStream): AAPool {
+    return new AAPool(config, errorStream);
+  }
+
   private _pool: Pool;
   private dbName: string;
+  private connections = new Map<PoolConnection, AAPoolConnection>();
 
   constructor(config: PoolConfig | string, private errorStream?: WriteStream) {
     super(mysql.createPool(config));
@@ -31,16 +25,40 @@ export class AAPool extends Queryable {
 
   get pool(): Pool { return this._pool; }
 
-  getConnection(): Promise<AAPoolConnection> {
+  async getConnection(): Promise<AAPoolConnection> {
     return new Promise<AAPoolConnection>((resolve, reject) => {
-      this._pool.getConnection((err, connection) => {
+      this._pool.getConnection((err, poolConnection) => {
         if (err) {
-          this._logError(err);
+          this.logError(err);
           reject(err);
-        } else
-          resolve(new AAPoolConnection(connection, this));
+        } else {
+          const aaPoolConnection = new AAPoolConnection(poolConnection, this);
+          this.connections.set(poolConnection, aaPoolConnection);
+          resolve(aaPoolConnection);
+        }
       });
     });
+  }
+
+  async acquireConnection(connection: AAPoolConnection | PoolConnection): Promise<AAPoolConnection> {
+    return new Promise<AAPoolConnection>((resolve, reject) => {
+      this._pool.acquireConnection(connection instanceof AAPoolConnection ? connection.poolConnection : connection,
+        (err: MysqlError, poolConnection: PoolConnection) => {
+          if (err)
+            reject(err);
+          else if (this.connections.has(poolConnection))
+            resolve(this.connections.get(poolConnection));
+          else {
+            const aaPoolConnection = new AAPoolConnection(poolConnection, this);
+            this.connections.set(poolConnection, aaPoolConnection);
+            resolve(aaPoolConnection);
+          }
+        });
+    });
+  }
+
+  releaseConnection(connection: AAPoolConnection | PoolConnection): void {
+    this._pool.releaseConnection(connection instanceof AAPoolConnection ? connection.poolConnection : connection);
   }
 
   on(ev: 'acquire' | 'connection' | 'release', callback: (connection: AAPoolConnection) => void): AAPool;
@@ -49,7 +67,7 @@ export class AAPool extends Queryable {
   on(ev: string, callback: (...args: any[]) => void): AAPool {
     this._pool.on(ev, (...args: any[]) => {
       if (ev === 'error')
-        this._logError(args[0]);
+        this.logError(args[0]);
 
       args = AAConnection.replaceConnectionArgs(args);
       callback(...args);
@@ -68,29 +86,14 @@ export class AAPool extends Queryable {
       });
     });
   }
-
-  _logError(err: MysqlError): void {
-    if (err && this.errorStream) {
-      const name = this.dbName ? ` "${this.dbName}"` : '';
-
-      if (err.code === 'PROTOCOL_CONNECTION_LOST')
-        this.errorStream.write(`Database${name} connection was closed.\n`);
-      else if (err.code === 'ER_CON_COUNT_ERROR')
-        this.errorStream.write(`Database${name} has too many connections.\n`);
-      else if (err.code === 'ECONNREFUSED')
-        this.errorStream.write(`Database${name} connection was refused.\n`);
-      else if (err.code === 'ENOTFOUND')
-        this.errorStream.write(`Address ${(err as any).host} for database${name} not found.\n`);
-      else
-        this.errorStream.write(`Database${name} error: ${err.code}\n`);
-    }
-  }
 }
 
 export class AAPoolConnection extends AAConnection {
   constructor(private _poolConnection: PoolConnection, private _pool: AAPool) {
     super(_poolConnection);
   }
+
+  get poolConnection(): PoolConnection { return this._poolConnection; }
 
   release(): void {
     this._poolConnection.release();

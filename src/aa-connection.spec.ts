@@ -1,27 +1,37 @@
 import { expect } from 'chai';
-import { AAPool, AAPoolConnection } from './aa-pool';
+import { AAConnection } from './aa-connection';
 import { Types } from 'mysql';
 
 describe('AAPoolConnection', () => {
-  let pool: AAPool;
-  let connection: AAPoolConnection;
+  let connection: AAConnection;
 
-  before(async () => {
-    pool = new AAPool({
+  async function createConnection() {
+    connection = AAConnection.createConnection({
       host: process.env.DB_TEST_HOST,
       user: process.env.DB_TEST_USER,
       password: process.env.DB_TEST_PWD,
       database: process.env.DB_TEST_DB
     });
-    connection = await pool.getConnection();
+    await connection.connect();
+  }
+
+  before(async () => {
+    createConnection();
+  });
+
+  beforeEach(async () => {
+    if (connection && connection.state === 'disconnected')
+      createConnection();
   });
 
   after(async () => {
-    connection.release();
-    await pool.end();
+    try {
+      await connection.end();
+    }
+    catch (err) {}
   });
 
-  it('should be able to perform queries via queryResults()', async () => {
+  it('should be able to queries via queryResults()', async () => {
     const sum = (await connection.queryResults('SELECT 2 + 3 AS sum'))[0].sum;
     expect(sum).equals(5);
 
@@ -62,6 +72,17 @@ describe('AAPoolConnection', () => {
     }
     catch (err) {
       expect(false).to.be.ok('exception should not have been thrown');
+    }
+  });
+
+  it('should be able to change user', async() => {
+    try {
+      await connection.changeUser({ user: process.env.DB_TEST_USER2 });
+      expect(true).to.be.ok;
+      await connection.changeUser({ user: 'non_existent_user' });
+    }
+    catch (err) {
+      expect(err && err.sqlMessage).to.match(/access denied.*non_existent_user/i);
     }
   });
 });

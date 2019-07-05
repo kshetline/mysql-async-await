@@ -1,5 +1,8 @@
 import { FieldInfo, MysqlError, QueryFunction, QueryOptions } from 'mysql';
 
+export const QM = { toSqlString: () => '?' };
+export const DQM = { toSqlString: () => '??' };
+
 export interface FullQueryResults {
   err: MysqlError | null;
   results: any;
