@@ -2,36 +2,41 @@ import { expect } from 'chai';
 import { AAConnection } from './aa-connection';
 import { Types } from 'mysql';
 
-describe('AAPoolConnection', () => {
+describe('AAConnection', () => {
   let connection: AAConnection;
+  let justCreated: boolean;
 
-  async function createConnection() {
+  function createConnection() {
     connection = AAConnection.createConnection({
       host: process.env.DB_TEST_HOST,
       user: process.env.DB_TEST_USER,
       password: process.env.DB_TEST_PWD,
       database: process.env.DB_TEST_DB
     });
-    await connection.connect();
+    justCreated = true;
   }
 
   before(async () => {
     createConnection();
   });
 
-  beforeEach(async () => {
-    if (connection && connection.state === 'disconnected')
-      createConnection();
+  beforeEach(() => {
+    if (connection && !justCreated) {
+      if (connection.state === 'disconnected')
+        createConnection();
+    }
+    else
+      justCreated = false;
   });
 
   after(async () => {
     try {
       await connection.end();
     }
-    catch (err) {}
+    catch (err) { }
   });
 
-  it('should be able to queries via queryResults()', async () => {
+  it('should be able to perform queries via queryResults()', async () => {
     const sum = (await connection.queryResults('SELECT 2 + 3 AS sum'))[0].sum;
     expect(sum).equals(5);
 
