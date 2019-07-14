@@ -5,6 +5,7 @@ import { Types } from 'mysql';
 describe('AAConnection', () => {
   let connection: AAConnection;
   let justCreated: boolean;
+  let connected = false;
 
   function createConnection() {
     connection = AAConnection.createConnection({
@@ -14,6 +15,8 @@ describe('AAConnection', () => {
       database: process.env.DB_TEST_DB
     });
     justCreated = true;
+    connection.on('connect', () => connected = true);
+    connection.on('end', () => connected = false);
   }
 
   before(async () => {
@@ -89,26 +92,17 @@ describe('AAConnection', () => {
   it('should be able to change user', async() => {
     try {
       await connection.changeUser({ user: process.env.DB_TEST_USER2 });
-      expect(true).to.be.ok;
+      expect(connected).to.be.true;
       await connection.changeUser({ user: 'non_existent_user' });
     }
     catch (err) {
       expect(err && err.sqlMessage).to.match(/access denied.*non_existent_user/i);
+      expect(connected).to.be.false;
     }
   });
 
-  it('should be able to get error events', async() => {
-//    connection.on('error', error => console.error(error));
-    let threwError = true;
-
-    try {
-      await connection.queryResults('this isn\'t valid sql');
-      threwError = false;
-    }
-    catch (err) {
-      expect(err.toString()).to.contain('ER_PARSE_ERROR');
-    }
-
-    expect(threwError, 'exception should have been thrown').to.be.ok;
+  it('should be able to ping', async() => {
+    await connection.ping();
+    expect(connected).to.be.true;
   });
 });
