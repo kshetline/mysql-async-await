@@ -37,19 +37,23 @@ describe('AAConnection', () => {
   });
 
   it('should be able to perform queries via queryResults()', async () => {
+    let threwError = true;
     const sum = (await connection.queryResults('SELECT 2 + 3 AS sum'))[0].sum;
     expect(sum).equals(5);
 
     try {
       await connection.queryResults('SELECT * FROM non_existent_table');
-      expect(false).to.be.ok('exception should have been thrown');
+      threwError = false;
     }
     catch (err) {
-      expect(err.toString()).to.be.contain('ER_NO_SUCH_TABLE');
+      expect(err.toString()).to.contain('ER_NO_SUCH_TABLE');
     }
+
+    expect(threwError, 'exception should have been thrown').to.be.ok;
   });
 
   it('should be able to perform queries via queryResultsWithFields()', async () => {
+    let threwError = true;
     const { results, fields } = await connection.queryResultsWithFields('SELECT 2 + 3 AS sum');
     expect(results[0].sum).equals(5);
     expect(fields[0].name).equals('sum');
@@ -57,11 +61,13 @@ describe('AAConnection', () => {
 
     try {
       await connection.queryResultsWithFields('SELECT * FROM non_existent_table');
-      expect(false).to.be.ok('exception should have been thrown');
+      threwError = false;
     }
     catch (err) {
-      expect(err.toString()).to.be.contain('ER_NO_SUCH_TABLE');
+      expect(err.toString()).to.contain('ER_NO_SUCH_TABLE');
     }
+
+    expect(threwError, 'exception should have been thrown').to.be.ok;
   });
 
   it('should be able to perform queries via query()', async () => {
@@ -73,10 +79,10 @@ describe('AAConnection', () => {
 
     try {
       const err2 = (await connection.query('SELECT * FROM non_existent_table')).err;
-      expect(err2.toString()).to.be.contain('ER_NO_SUCH_TABLE');
+      expect(err2.toString()).to.contain('ER_NO_SUCH_TABLE');
     }
     catch (err) {
-      expect(false).to.be.ok('exception should not have been thrown');
+      expect(false, 'exception should not have been thrown').to.be.ok;
     }
   });
 
@@ -89,5 +95,20 @@ describe('AAConnection', () => {
     catch (err) {
       expect(err && err.sqlMessage).to.match(/access denied.*non_existent_user/i);
     }
+  });
+
+  it('should be able to get error events', async() => {
+//    connection.on('error', error => console.error(error));
+    let threwError = true;
+
+    try {
+      await connection.queryResults('this isn\'t valid sql');
+      threwError = false;
+    }
+    catch (err) {
+      expect(err.toString()).to.contain('ER_PARSE_ERROR');
+    }
+
+    expect(threwError, 'exception should have been thrown').to.be.ok;
   });
 });
