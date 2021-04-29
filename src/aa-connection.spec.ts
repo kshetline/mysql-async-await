@@ -7,7 +7,7 @@ describe('AAConnection', () => {
   let justCreated: boolean;
   let connected = false;
 
-  function createConnection() {
+  function createConnection(): void {
     connection = AAConnection.createConnection({
       host: process.env.DB_TEST_HOST,
       user: process.env.DB_TEST_USER,
@@ -89,7 +89,7 @@ describe('AAConnection', () => {
     }
   });
 
-  it('should be able to change user', async() => {
+  it('should be able to change user', async () => {
     try {
       await connection.changeUser({ user: process.env.DB_TEST_USER2 });
       expect(connected).to.be.true;
@@ -101,7 +101,7 @@ describe('AAConnection', () => {
     }
   });
 
-  it('should be able to ping', async() => {
+  it('should be able to ping', async () => {
     await connection.ping();
     expect(connected).to.be.true;
   });

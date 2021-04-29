@@ -9,8 +9,7 @@
 
 # dependencies
 /node_modules
-/server/node_modules
-
+\
 # IDEs and editors
 /.idea
 .project
@@ -35,12 +34,8 @@
 npm-debug.log
 testem.log
 /typings
-/logs
+/.nyc_output
 /.npmrc
-
-# e2e
-/e2e/*.js
-/e2e/*.map
 
 # System Files
 .DS_Store

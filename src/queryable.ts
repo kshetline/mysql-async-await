@@ -1,7 +1,7 @@
 import { FieldInfo, MysqlError, QueryFunction, QueryOptions } from 'mysql';
 
-export const QM = { toSqlString: () => '?' };
-export const DQM = { toSqlString: () => '??' };
+export const QM = { toSqlString: (): string => '?' };
+export const DQM = { toSqlString: (): string => '??' };
 
 export interface FullQueryResults {
   err: MysqlError | null;
@@ -19,9 +19,9 @@ export interface ResultsWithFields {
 }
 
 export abstract class Queryable {
-  constructor(protected _queryable: CanQuery) {}
+  protected constructor(protected _queryable: CanQuery) {}
 
-  query(sqlStringOrOptions: string | QueryOptions, values?: any) {
+  query(sqlStringOrOptions: string | QueryOptions, values?: any): Promise<FullQueryResults> {
     return new Promise<FullQueryResults>(resolve => {
       const args = typeof sqlStringOrOptions === 'string' ?
         [sqlStringOrOptions, values] : [sqlStringOrOptions];
@@ -49,7 +49,7 @@ export abstract class Queryable {
     });
   }
 
-  queryResultsWithFields(sqlStringOrOptions: string | QueryOptions, values?: any) {
+  queryResultsWithFields(sqlStringOrOptions: string | QueryOptions, values?: any): Promise<ResultsWithFields> {
     return new Promise<ResultsWithFields>((resolve, reject) => {
       const args = typeof sqlStringOrOptions === 'string' ?
         [sqlStringOrOptions, values] : [sqlStringOrOptions];
@@ -65,5 +65,6 @@ export abstract class Queryable {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected logError(err: MysqlError): void {}
 }

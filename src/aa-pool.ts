@@ -1,4 +1,4 @@
-import mysql, { MysqlError, PoolConnection, Pool, PoolConfig, ConnectionConfig } from 'mysql';
+import mysql, { MysqlError, PoolConnection, Pool, PoolConfig } from 'mysql';
 import { parse as parseUrl } from 'url';
 import WriteStream = NodeJS.WriteStream;
 import { AAConnection } from './aa-connection';
@@ -9,8 +9,8 @@ export class AAPool extends Queryable {
     return new AAPool(config, errorStream);
   }
 
-  private _pool: Pool;
-  private dbName: string;
+  private readonly _pool: Pool;
+  private readonly dbName: string;
   private connections = new Map<PoolConnection, AAPoolConnection>();
 
   constructor(config: PoolConfig | string, private errorStream?: WriteStream) {
@@ -31,9 +31,11 @@ export class AAPool extends Queryable {
         if (err) {
           this.logError(err);
           reject(err);
-        } else {
-          const aaPoolConnection = new AAPoolConnection(poolConnection, this);
+        }
+        else {
+          const aaPoolConnection = new AAPoolConnection(poolConnection);
           this.connections.set(poolConnection, aaPoolConnection);
+          poolConnection.on('end', () => this.connections.delete(poolConnection));
           resolve(aaPoolConnection);
         }
       });
@@ -49,7 +51,7 @@ export class AAPool extends Queryable {
           else if (this.connections.has(poolConnection))
             resolve(this.connections.get(poolConnection));
           else {
-            const aaPoolConnection = new AAPoolConnection(poolConnection, this);
+            const aaPoolConnection = new AAPoolConnection(poolConnection);
             this.connections.set(poolConnection, aaPoolConnection);
             resolve(aaPoolConnection);
           }
@@ -57,8 +59,9 @@ export class AAPool extends Queryable {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   releaseConnection(connection: AAPoolConnection | PoolConnection): void {
-    this._pool.releaseConnection(connection instanceof AAPoolConnection ? connection.poolConnection : connection);
+    // this._pool.releaseConnection(connection instanceof AAPoolConnection ? connection.poolConnection : connection);
   }
 
   on(ev: 'acquire' | 'connection' | 'release', callback: (connection: AAPoolConnection) => void): AAPool;
@@ -86,10 +89,17 @@ export class AAPool extends Queryable {
       });
     });
   }
+
+  protected logError(err: MysqlError): void {
+    if (err && this.errorStream) {
+      const name = this.dbName ? ` "${this.dbName}"` : '';
+      this.errorStream.write(`Database${name} error: ${err.code}\n`);
+    }
+  }
 }
 
 export class AAPoolConnection extends AAConnection {
-  constructor(private _poolConnection: PoolConnection, private _pool: AAPool) {
+  constructor(private _poolConnection: PoolConnection) {
     super(_poolConnection);
   }
 
@@ -99,9 +109,15 @@ export class AAPoolConnection extends AAConnection {
     this._poolConnection.release();
   }
 
+  // For consistency with the superclass AAConnection this method returns a Promise, but
+  // there's really nothing to wait for in this case. endNow() can be used instead.
   end(): Promise<void> {
     // PoolConnection end() method has no callback.
     this._poolConnection.end();
     return Promise.resolve();
+  }
+
+  endNow(): void {
+    this._poolConnection.end();
   }
 }

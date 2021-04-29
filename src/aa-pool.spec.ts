@@ -47,7 +47,7 @@ describe('AAPool', () => {
       expect(err.toString()).to.contain('ER_NO_SUCH_TABLE');
     }
 
-     expect(threwError, 'exception should have been thrown').to.be.ok;
+    expect(threwError, 'exception should have been thrown').to.be.ok;
   });
 
   it('should be able to perform pool queries via queryResultsWithFields()', async () => {

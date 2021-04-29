@@ -1,5 +1,5 @@
 import mysql, {
-  Connection, ConnectionConfig, ConnectionOptions, MysqlError, Query, queryCallback, QueryFunction, QueryOptions
+  Connection, ConnectionConfig, ConnectionOptions, MysqlError, QueryFunction, QueryOptions
 } from 'mysql';
 import WriteStream = NodeJS.WriteStream;
 import { Queryable } from './queryable';
@@ -22,7 +22,7 @@ export class AAConnection extends Queryable {
     return aaConnection;
   }
 
-  static replaceConnectionArgs(args: any[]) {
+  static replaceConnectionArgs(args: any[]): any[] {
     if (args)
       return args.map(arg => connections.has(arg) ? connections.get(arg) : arg);
     else
@@ -31,9 +31,10 @@ export class AAConnection extends Queryable {
 
   protected dbName: string;
 
-  constructor(private _connection: Connection, private errorStream?: WriteStream) {
+  protected constructor(private _connection: Connection, private errorStream?: WriteStream) {
     super(_connection);
     connections.set(_connection, this);
+    _connection.on('end', () => connections.delete(_connection));
   }
 
   get connection(): Connection { return this._connection; }
@@ -55,13 +56,11 @@ export class AAConnection extends Queryable {
 
   protected promisify<T>(method: Function, options: T, deleteConnection = false): Promise<any> {
     return new Promise<any>((resolve, reject): void => {
-      const callback = (err: MysqlError, ...args: any[]) => {
+      const callback = (err: MysqlError, ...args: any[]): void => {
         if (err)
           reject(err);
-        else if (args && args.length > 1)
-          resolve(args);
         else
-          resolve(...args);
+          resolve(args);
 
         if (deleteConnection)
           connections.delete(this._connection);
